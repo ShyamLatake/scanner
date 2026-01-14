@@ -5,4 +5,4 @@
  * the entire app and not just one component.
  */
 
-@import "./theme/variables.scss";
+@use "./theme/variables.scss" as *;
