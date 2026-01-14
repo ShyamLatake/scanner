@@ -1,0 +1,109 @@
+<ion-header [translucent]="true">
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-back-button></ion-back-button>
+    </ion-buttons>
+    <ion-title>Capture Media</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true">
+  <div class="capture-container">
+    <!-- Media Count -->
+    <div class="media-count ion-padding">
+      <ion-text>
+        <h3>Captured: {{ capturedMedia.length }} item(s)</h3>
+      </ion-text>
+    </div>
+
+    <!-- Capture Buttons -->
+    <div class="capture-buttons ion-padding">
+      <ion-button
+        expand="block"
+        fill="solid"
+        color="primary"
+        (click)="takePhoto()"
+        [disabled]="isUploading"
+      >
+        <ion-icon name="camera-outline" slot="start"></ion-icon>
+        Take Photo
+      </ion-button>
+
+      <ion-button
+        expand="block"
+        fill="solid"
+        color="secondary"
+        (click)="takeVideo()"
+        [disabled]="isUploading"
+        class="ion-margin-top"
+      >
+        <ion-icon name="videocam-outline" slot="start"></ion-icon>
+        Take Video
+      </ion-button>
+    </div>
+
+    <!-- Captured Media Preview -->
+    @if (capturedMedia.length > 0) {
+      <div class="media-preview">
+        @for (media of capturedMedia; track $index) {
+          <ion-item-sliding>
+            <ion-item>
+              <ion-thumbnail slot="start">
+                @if (media.type === 'photo') {
+                  <img [src]="media.thumbnail || media.file" alt="Photo">
+                }
+                @if (media.type === 'video') {
+                  <ion-icon name="videocam" size="large"></ion-icon>
+                }
+              </ion-thumbnail>
+              <ion-label>
+                <h3>{{ media.type === 'photo' ? 'Photo' : 'Video' }} {{ $index + 1 }}</h3>
+                <p>{{ media.type }}</p>
+              </ion-label>
+            </ion-item>
+            <ion-item-options side="end">
+              <ion-item-option color="danger" (click)="removeMedia($index)">
+                <ion-icon slot="icon-only" name="trash"></ion-icon>
+              </ion-item-option>
+            </ion-item-options>
+          </ion-item-sliding>
+        }
+      </div>
+    }
+
+    <!-- Upload Progress -->
+    @if (isUploading) {
+      <div class="upload-progress ion-padding">
+        <ion-progress-bar [value]="uploadProgress / 100"></ion-progress-bar>
+        <ion-text class="ion-margin-top">
+          <p>Uploading... {{ uploadProgress }}%</p>
+        </ion-text>
+      </div>
+    }
+
+    <!-- Action Buttons -->
+    @if (capturedMedia.length > 0 && !isUploading) {
+      <div class="action-buttons ion-padding">
+      <ion-button
+        expand="block"
+        fill="outline"
+        (click)="navigateToPreview()"
+        class="ion-margin-bottom"
+      >
+        <ion-icon name="eye-outline" slot="start"></ion-icon>
+        Preview All
+      </ion-button>
+
+      <ion-button
+        expand="block"
+        fill="solid"
+        color="success"
+        (click)="uploadMedia()"
+      >
+        <ion-icon name="cloud-upload-outline" slot="start"></ion-icon>
+        Upload All ({{ capturedMedia.length }})
+      </ion-button>
+      </div>
+    }
+  </div>
+</ion-content>

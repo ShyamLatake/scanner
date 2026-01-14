@@ -1,0 +1,37 @@
+<ion-header [translucent]="true">
+  <ion-toolbar>
+    <ion-title>
+      Child Records
+    </ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true">
+  <ion-header collapse="condense">
+    <ion-toolbar>
+      <ion-title size="large">Child Records</ion-title>
+    </ion-toolbar>
+  </ion-header>
+
+  <div class="ion-padding">
+    <ion-card>
+      <ion-card-header>
+        <ion-card-title>Welcome</ion-card-title>
+        <ion-card-subtitle>Child Record Management System</ion-card-subtitle>
+      </ion-card-header>
+      <ion-card-content>
+        <p>Create child records and capture photos/videos for face detection training.</p>
+      </ion-card-content>
+    </ion-card>
+
+    <ion-button expand="block" fill="solid" (click)="navigateToCreateRecord()" class="ion-margin-top">
+      <ion-icon name="add-circle-outline" slot="start"></ion-icon>
+      Create New Record
+    </ion-button>
+
+    <ion-button expand="block" fill="outline" (click)="navigateToRecordList()" class="ion-margin-top">
+      <ion-icon name="list-outline" slot="start"></ion-icon>
+      View All Records
+    </ion-button>
+  </div>
+</ion-content>

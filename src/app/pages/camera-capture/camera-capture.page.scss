@@ -1,0 +1,46 @@
+.capture-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.media-count {
+  background-color: var(--ion-color-light);
+  text-align: center;
+}
+
+.capture-buttons {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.media-preview {
+  max-height: 300px;
+  overflow-y: auto;
+  margin: 20px 0;
+}
+
+ion-item-sliding {
+  margin-bottom: 10px;
+}
+
+.upload-progress {
+  margin: 20px 0;
+}
+
+.action-buttons {
+  margin-top: auto;
+  padding-bottom: 20px;
+}
+
+ion-thumbnail {
+  --size: 80px;
+}
+
+ion-thumbnail img {
+  object-fit: cover;
+  width: 100%;
+  height: 100%;
+}

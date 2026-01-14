@@ -1,0 +1,50 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-title>Media Preview</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="loadMedia()">
+        <ion-icon name="refresh" slot="icon-only"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content>
+  @if (media.length > 0) {
+    <ion-grid>
+      <ion-row>
+        @for (item of media; track $index) {
+          <ion-col size="6">
+            <ion-card>
+              @if (item.type === 'photo') {
+                <img [src]="item.thumbnail || item.file" />
+              }
+              @if (item.type === 'video') {
+                <div class="video-placeholder">
+                  <ion-icon name="videocam" size="large"></ion-icon>
+                  <p>Video</p>
+                </div>
+              }
+              <ion-card-content>
+                <ion-button
+                  fill="clear"
+                  color="danger"
+                  size="small"
+                  (click)="removeMedia($index)"
+                >
+                  <ion-icon name="trash" slot="icon-only"></ion-icon>
+                </ion-button>
+              </ion-card-content>
+            </ion-card>
+          </ion-col>
+        }
+      </ion-row>
+    </ion-grid>
+  }
+
+  @if (media.length === 0) {
+    <div class="ion-text-center ion-padding">
+      <p>No media to preview</p>
+    </div>
+  }
+</ion-content>

@@ -1,0 +1,7 @@
+{
+  "name": "ionic-scanner",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "angular"
+}
