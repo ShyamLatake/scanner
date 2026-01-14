@@ -1,83 +1,37 @@
 # Ionic Child Record Scanner
 
-Ionic Angular application for creating child records and capturing photos/videos for face detection training.
-
-## Prerequisites
-
-- Node.js (v18 or higher)
-- npm or yarn
-- Android Studio (for Android build)
-- Ionic CLI: `npm install -g @ionic/cli`
-
-## Installation
-
-```bash
-npm install
-```
-
-## Running the App
-
-### Development (Web Browser)
-```bash
-ionic serve
-```
-
-### Development (Android)
-```bash
-ionic build
-npx cap sync
-npx cap open android
-```
-
-## Building Android APK
-
-1. Build the app:
-```bash
-ionic build
-npx cap sync
-```
-
-2. Open in Android Studio:
-```bash
-npx cap open android
-```
-
-3. In Android Studio:
-   - Go to `Build` > `Generate Signed Bundle / APK`
-   - Select `APK`
-   - Create/Select keystore
-   - Build the APK
-
-4. APK Location:
-   - Debug: `android/app/build/outputs/apk/debug/app-debug.apk`
-   - Release: `android/app/build/outputs/apk/release/app-release.apk`
+Ionic Angular app for creating child records and capturing photos/videos for face detection training.
 
 ## Configuration
 
-Update API URL in `src/environments/environment.ts`:
+Backend API URL - Update src/environments/environment.ts:
+
 ```typescript
-apiUrl: 'https://your-api-url.com/api'
+export const environment = {
+  production: false,
+  apiUrl: "http://localhost:3000/api",
+};
 ```
 
-## Data Structure
+Production - Update src/environments/environment.prod.ts:
 
-### Child Record
-- `child_id` / `roll_number`: Unique identifier
-- `name`: Full name of the child
-- `class_id`: Class identifier
-- `school_id`: School identifier
-- `digital_ocean_info`: Digital Ocean storage information
-
-### Media Files
-- Photos: Multiple photos per child
-- Videos: Multiple videos per child
+```typescript
+export const environment = {
+  production: true,
+  apiUrl: "https://your-api-domain.com/api",
+};
+```
 
 ## API Endpoints
 
-### 1. Create Child Record
-**POST** `/api/records`
+All endpoints prefixed with base URL from environment.ts.
 
-**Request:**
+### POST /api/records - Create Child Record
+
+Headers: Content-Type: application/json
+
+Request:
+
 ```json
 {
   "child_id": "CH001",
@@ -91,7 +45,8 @@ apiUrl: 'https://your-api-url.com/api'
 }
 ```
 
-**Response:**
+Response: 201 Created
+
 ```json
 {
   "id": "123",
@@ -99,19 +54,24 @@ apiUrl: 'https://your-api-url.com/api'
   "name": "John Doe",
   "class_id": "CLASS_5A",
   "school_id": "SCH_001",
-  "digital_ocean_info": {
-    "bucket": "child-records",
-    "region": "nyc3"
-  },
+  "digital_ocean_info": { "bucket": "child-records", "region": "nyc3" },
   "createdAt": "2024-01-15T10:30:00Z",
   "updatedAt": "2024-01-15T10:30:00Z"
 }
 ```
 
-### 2. Get All Records
-**GET** `/api/records`
+Errors: 400 Invalid data | 409 child_id exists | 500 Server error
 
-**Response:**
+---
+
+### GET /api/records - Get All Records
+
+Headers: Content-Type: application/json
+
+Query Params: page, limit, class_id, school_id
+
+Response: 200 OK
+
 ```json
 [
   {
@@ -120,61 +80,144 @@ apiUrl: 'https://your-api-url.com/api'
     "name": "John Doe",
     "class_id": "CLASS_5A",
     "school_id": "SCH_001",
-    "createdAt": "2024-01-15T10:30:00Z"
+    "createdAt": "2024-01-15T10:30:00Z",
+    "updatedAt": "2024-01-15T10:30:00Z"
   }
 ]
 ```
 
-### 3. Get Record by ID
-**GET** `/api/records/:id`
+---
 
-**Response:**
-```json
-{
-  "id": "123",
-  "child_id": "CH001",
-  "name": "John Doe",
-  "class_id": "CLASS_5A",
-  "school_id": "SCH_001",
-  "createdAt": "2024-01-15T10:30:00Z"
-}
+### GET /api/records/:id - Get Record by ID
+
+Headers: Content-Type: application/json
+
+Response: 200 OK (same structure as create response)
+
+Errors: 404 Not found
+
+---
+
+### GET /api/records/child/:childId - Get Record by Child ID
+
+Headers: Content-Type: application/json
+
+Response: 200 OK (same structure as create response)
+
+---
+
+### POST /api/records/:id/media - Upload Media
+
+Headers: Content-Type: multipart/form-data
+
+FormData:
+
+- photos - Array of image files (Blob/File)
+- videos - Array of video files (Blob/File)
+- recordId - Record ID (string)
+
+Example:
+
+```javascript
+formData.append("photos", photoBlob1, "photo_0.jpg");
+formData.append("videos", videoBlob1, "video_0.mp4");
+formData.append("recordId", "123");
 ```
 
-### 4. Upload Media
-**POST** `/api/records/:id/media`
+Response: 200 OK
 
-**Request:** (multipart/form-data)
-- `photos`: Array of image files
-- `videos`: Array of video files
-- `recordId`: Record ID
-
-**Response:**
 ```json
 {
   "success": true,
   "message": "Media uploaded successfully",
+  "recordId": "123",
   "uploadedFiles": {
-    "photos": ["photo1.jpg", "photo2.jpg"],
-    "videos": ["video1.mp4"]
+    "photos": [
+      { "filename": "photo_0.jpg", "size": 245678, "mimetype": "image/jpeg" }
+    ],
+    "videos": [
+      { "filename": "video_0.mp4", "size": 5245678, "mimetype": "video/mp4" }
+    ]
   },
   "digitalOceanUrls": {
-    "photos": ["https://storage.digitalocean.com/.../photo1.jpg"],
-    "videos": ["https://storage.digitalocean.com/.../video1.mp4"]
+    "photos": [
+      "https://child-records.nyc3.digitaloceanspaces.com/records/123/photos/photo_0.jpg"
+    ],
+    "videos": [
+      "https://child-records.nyc3.digitaloceanspaces.com/records/123/videos/video_0.mp4"
+    ]
   }
 }
 ```
 
-## Android Permissions
+Errors: 400 Invalid format | 404 Record not found | 413 File too large | 500 Upload failed
 
-Required permissions in `android/app/src/main/AndroidManifest.xml`:
-```xml
-<uses-permission android:name="android.permission.CAMERA" />
-<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
-<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+Note: App tracks progress via HttpEventType.UploadProgress - backend must support progress reporting.
+
+---
+
+## CORS Configuration
+
+```javascript
+app.use(
+  cors({
+    origin: [
+      "http://localhost:8100",
+      "capacitor://localhost",
+      "ionic://localhost",
+      "https://your-production-domain.com",
+    ],
+    credentials: true,
+  })
+);
 ```
 
-## Notes
+---
 
-- Update the record model structure to match the API (currently uses firstName/lastName, needs to be updated to match the data structure above)
-- Digital Ocean storage URLs should be returned in the media upload response
-- Ensure backend handles multipart/form-data for media uploads
+## Digital Ocean Spaces Integration
+
+Environment Variables:
+
+```env
+DO_SPACES_KEY=your_access_key
+DO_SPACES_SECRET=your_secret_key
+DO_SPACES_BUCKET=child-records
+DO_SPACES_REGION=nyc3
+```
+
+Upload Function (Node.js/AWS SDK):
+
+```javascript
+const AWS = require("aws-sdk");
+const spacesEndpoint = new AWS.Endpoint(`${region}.digitaloceanspaces.com`);
+const s3 = new AWS.S3({
+  endpoint: spacesEndpoint,
+  accessKeyId: process.env.DO_SPACES_KEY,
+  secretAccessKey: process.env.DO_SPACES_SECRET,
+});
+
+async function uploadToDigitalOcean(buffer, filename, contentType) {
+  const params = {
+    Bucket: process.env.DO_SPACES_BUCKET,
+    Key: filename,
+    Body: buffer,
+    ACL: "public-read",
+    ContentType: contentType,
+  };
+  const data = await s3.upload(params).promise();
+  return data.Location;
+}
+```
+
+File Structure: child-records/records/{recordId}/photos/ and videos/
+
+---
+
+## Quick Start
+
+```bash
+npm install
+ionic serve
+```
+
+Update src/environments/environment.ts with your backend API URL.
