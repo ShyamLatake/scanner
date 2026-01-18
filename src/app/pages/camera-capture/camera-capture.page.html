@@ -1,108 +1,372 @@
 <ion-header [translucent]="true">
   <ion-toolbar>
     <ion-buttons slot="start">
-      <ion-back-button></ion-back-button>
+      <ion-back-button defaultHref="/home"></ion-back-button>
     </ion-buttons>
-    <ion-title>Capture Media</ion-title>
+    <ion-title>Face Enrollment</ion-title>
+    <ion-buttons slot="end">
+      <ion-button fill="clear">
+        <ion-icon name="ellipsis-vertical"></ion-icon>
+      </ion-button>
+    </ion-buttons>
   </ion-toolbar>
 </ion-header>
 
 <ion-content [fullscreen]="true">
-  <div class="capture-container">
-    <!-- Media Count -->
-    <div class="media-count ion-padding">
-      <ion-text>
-        <h3>Captured: {{ capturedMedia.length }} item(s)</h3>
-      </ion-text>
-    </div>
+  <div class="enrollment-container">
+    
+    <!-- Video element - always in DOM for camera access -->
+    <video 
+      #videoElement 
+      autoplay 
+      playsinline 
+      muted
+      [style.display]="active ? 'block' : 'none'"
+      [style.width]="active ? '100%' : '1px'"
+      [style.height]="active ? '100%' : '1px'"
+      [style.object-fit]="'cover'"
+      [style.position]="active ? 'absolute' : 'absolute'"
+      [style.top]="active ? '0' : '-9999px'"
+      [style.left]="active ? '0' : '-9999px'"
+      [style.right]="active ? '0' : 'auto'"
+      [style.bottom]="active ? '0' : 'auto'"
+      [style.z-index]="active ? '1' : '-1'"
+    ></video>
+    
+    <!-- Start Screen (shown when not active) -->
+    @if (!active && !isLoading) {
+      <div class="start-screen">
+        <!-- Progress Header -->
+        <div class="progress-header">
+          <div class="step-info">
+            <span class="step-text">Step 1 of 5</span>
+            <span class="progress-percent">20%</span>
+          </div>
+          <div class="progress-track">
+            <div class="progress-fill" [style.width]="'20%'"></div>
+          </div>
+        </div>
 
-    <!-- Capture Buttons -->
-    <div class="capture-buttons ion-padding">
-      <ion-button
-        expand="block"
-        fill="solid"
-        color="primary"
-        (click)="takePhoto()"
-        [disabled]="isUploading"
-      >
-        <ion-icon name="camera-outline" slot="start"></ion-icon>
-        Take Photo
-      </ion-button>
+        <!-- Main Content -->
+        <div class="main-content">
+          <div class="security-section">
+            <div class="security-icon">
+              <ion-icon name="shield-checkmark"></ion-icon>
+            </div>
+            <h2>Secure Your Account</h2>
+            <p>We'll capture multiple angles of your face to ensure secure authentication</p>
+          </div>
 
-      <ion-button
-        expand="block"
-        fill="solid"
-        color="secondary"
-        (click)="takeVideo()"
-        [disabled]="isUploading"
-        class="ion-margin-top"
-      >
-        <ion-icon name="videocam-outline" slot="start"></ion-icon>
-        Take Video
-      </ion-button>
-    </div>
+          <!-- Camera Preview Area -->
+          <div class="camera-preview-area">
+            <div class="camera-placeholder">
+              <div class="camera-circle">
+                <ion-icon name="camera" class="camera-icon"></ion-icon>
+              </div>
+              <h3>Camera Initializing</h3>
+              <p>Please wait...</p>
+            </div>
+          </div>
 
-    <!-- Captured Media Preview -->
-    @if (capturedMedia.length > 0) {
-      <div class="media-preview">
-        @for (media of capturedMedia; track $index) {
-          <ion-item-sliding>
-            <ion-item>
-              <ion-thumbnail slot="start">
-                @if (media.type === 'photo') {
-                  <img [src]="media.thumbnail || media.file" alt="Photo">
-                }
-                @if (media.type === 'video') {
-                  <ion-icon name="videocam" size="large"></ion-icon>
-                }
-              </ion-thumbnail>
-              <ion-label>
-                <h3>{{ media.type === 'photo' ? 'Photo' : 'Video' }} {{ $index + 1 }}</h3>
-                <p>{{ media.type }}</p>
-              </ion-label>
-            </ion-item>
-            <ion-item-options side="end">
-              <ion-item-option color="danger" (click)="removeMedia($index)">
-                <ion-icon slot="icon-only" name="trash"></ion-icon>
-              </ion-item-option>
-            </ion-item-options>
-          </ion-item-sliding>
-        }
+          <!-- Required Poses Section -->
+          <div class="required-poses">
+            <h3>REQUIRED POSES</h3>
+            
+            <div class="pose-list">
+              <div class="pose-item">
+                <div class="pose-icon">
+                  <ion-icon name="person-circle-outline"></ion-icon>
+                </div>
+                <span class="pose-label">Face Forward</span>
+                <div class="pose-status">
+                  <div class="status-circle"></div>
+                </div>
+              </div>
+
+              <div class="pose-item">
+                <div class="pose-icon">
+                  <ion-icon name="arrow-back-outline"></ion-icon>
+                </div>
+                <span class="pose-label">Turn Left</span>
+                <div class="pose-status">
+                  <div class="status-circle"></div>
+                </div>
+              </div>
+
+              <div class="pose-item">
+                <div class="pose-icon">
+                  <ion-icon name="arrow-forward-outline"></ion-icon>
+                </div>
+                <span class="pose-label">Turn Right</span>
+                <div class="pose-status">
+                  <div class="status-circle"></div>
+                </div>
+              </div>
+
+              <div class="pose-item">
+                <div class="pose-icon">
+                  <ion-icon name="arrow-up-outline"></ion-icon>
+                </div>
+                <span class="pose-label">Look Up</span>
+                <div class="pose-status">
+                  <div class="status-circle"></div>
+                </div>
+              </div>
+
+              <div class="pose-item">
+                <div class="pose-icon">
+                  <ion-icon name="arrow-down-outline"></ion-icon>
+                </div>
+                <span class="pose-label">Look Down</span>
+                <div class="pose-status">
+                  <div class="status-circle"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tips Section -->
+          <div class="tips-section">
+            <div class="tips-header">
+              <ion-icon name="bulb" class="tips-icon"></ion-icon>
+              <span>Tips for Best Results</span>
+            </div>
+            <ul class="tips-list">
+              <li>Ensure good lighting on your face</li>
+              <li>Remove glasses or hats if possible</li>
+              <li>Keep your face centered in the frame</li>
+            </ul>
+          </div>
+
+          <!-- Start Button -->
+          <div class="start-button-section">
+            <ion-button
+              expand="block"
+              size="large"
+              (click)="startCapture()"
+              [disabled]="isLoading || !viewInitialized"
+              class="start-camera-btn"
+            >
+              Start Camera
+              <ion-icon slot="end" name="arrow-forward"></ion-icon>
+            </ion-button>
+            <p class="privacy-text">Your face data is encrypted and stored securely</p>
+          </div>
+        </div>
       </div>
     }
 
-    <!-- Upload Progress -->
-    @if (isUploading) {
-      <div class="upload-progress ion-padding">
-        <ion-progress-bar [value]="uploadProgress / 100"></ion-progress-bar>
-        <ion-text class="ion-margin-top">
-          <p>Uploading... {{ uploadProgress }}%</p>
-        </ion-text>
+    <!-- Loading State -->
+    @if (isLoading) {
+      <div class="loading-screen">
+        <!-- Progress Header -->
+        <div class="progress-header">
+          <div class="step-info">
+            <span class="step-text">Step 1 of 5</span>
+            <span class="progress-percent">20%</span>
+          </div>
+          <div class="progress-track">
+            <div class="progress-fill" [style.width]="'20%'"></div>
+          </div>
+        </div>
+
+        <div class="main-content">
+          <div class="security-section">
+            <div class="security-icon">
+              <ion-icon name="shield-checkmark"></ion-icon>
+            </div>
+            <h2>Secure Your Account</h2>
+            <p>We'll capture multiple angles of your face to ensure secure authentication</p>
+          </div>
+
+          <!-- Loading Camera Preview -->
+          <div class="camera-preview-area">
+            <div class="camera-placeholder loading">
+              <div class="loading-indicator">
+                <div class="loading-dot"></div>
+                <span class="loading-text">Preparing camera...</span>
+              </div>
+              <div class="camera-circle">
+                <ion-icon name="camera" class="camera-icon"></ion-icon>
+              </div>
+              <h3>Camera Initializing</h3>
+              <p>Please wait...</p>
+            </div>
+          </div>
+        </div>
       </div>
     }
 
-    <!-- Action Buttons -->
-    @if (capturedMedia.length > 0 && !isUploading) {
-      <div class="action-buttons ion-padding">
-      <ion-button
-        expand="block"
-        fill="outline"
-        (click)="navigateToPreview()"
-        class="ion-margin-bottom"
-      >
-        <ion-icon name="eye-outline" slot="start"></ion-icon>
-        Preview All
-      </ion-button>
+    <!-- Active Camera View -->
+    @if (active) {
+      <div class="camera-view">
+        <!-- Camera Overlay UI -->
+        <div class="camera-overlay">
+          <!-- Top Status Bar -->
+          <div class="top-status-bar">
+            <div class="capture-progress">
+              <span class="progress-text">{{ completionPercentage }}% Complete</span>
+              <div class="mini-progress-bar">
+                <div class="mini-progress-fill" [style.width.%]="completionPercentage"></div>
+              </div>
+            </div>
+          </div>
 
-      <ion-button
-        expand="block"
-        fill="solid"
-        color="success"
-        (click)="uploadMedia()"
-      >
-        <ion-icon name="cloud-upload-outline" slot="start"></ion-icon>
-        Upload All ({{ capturedMedia.length }})
-      </ion-button>
+          <!-- Face Guide Circle -->
+          <div class="face-guide-container">
+            <div class="face-guide-circle" 
+                 [class.face-detected]="currentDetection.faceDetected && currentDetection.faceCount === 1"
+                 [class.multiple-faces]="currentDetection.faceCount > 1"
+                 [class.no-face]="!currentDetection.faceDetected || currentDetection.faceCount === 0"
+                 [class.good-quality]="currentDetection.quality >= MIN_QUALITY_THRESHOLD"
+                 [class.high-confidence]="currentDetection.faceConfidence >= MIN_FACE_CONFIDENCE">
+              
+              <!-- Outer Ring -->
+              <div class="guide-ring"></div>
+              
+              <!-- Face Outline -->
+              <div class="face-outline"></div>
+              
+              <!-- Center Status Icon -->
+              <div class="center-status">
+                @if (currentDetection.faceCount === 0) {
+                  <ion-icon name="person-outline" class="status-icon no-face"></ion-icon>
+                } @else if (currentDetection.faceCount > 1) {
+                  <ion-icon name="people-outline" class="status-icon multiple-faces"></ion-icon>
+                } @else if (currentDetection.faceDetected && currentDetection.faceCount === 1) {
+                  @if (currentDetection.faceConfidence >= MIN_FACE_CONFIDENCE && currentDetection.quality >= MIN_QUALITY_THRESHOLD) {
+                    <ion-icon name="checkmark-circle" class="status-icon good-face"></ion-icon>
+                  } @else {
+                    <ion-icon name="warning-outline" class="status-icon low-quality"></ion-icon>
+                  }
+                }
+              </div>
+
+              <!-- Pose Progress Ring -->
+              <svg class="pose-progress-ring" viewBox="0 0 200 200">
+                <!-- Background ring -->
+                <circle class="ring-bg" cx="100" cy="100" r="90" />
+                
+                <!-- UP segment -->
+                <circle 
+                  class="ring-segment up-segment" 
+                  [class.captured]="poseProgress.UP"
+                  [class.ready]="currentDetection.poseBucket === 'UP' && shouldCapturePose()"
+                  cx="100" cy="100" r="90"
+                  stroke-dasharray="56.5 508"
+                  stroke-dashoffset="0"
+                />
+                
+                <!-- RIGHT segment -->
+                <circle 
+                  class="ring-segment right-segment" 
+                  [class.captured]="poseProgress.RIGHT"
+                  [class.ready]="currentDetection.poseBucket === 'RIGHT' && shouldCapturePose()"
+                  cx="100" cy="100" r="90"
+                  stroke-dasharray="56.5 508"
+                  stroke-dashoffset="-113"
+                />
+                
+                <!-- DOWN segment -->
+                <circle 
+                  class="ring-segment down-segment" 
+                  [class.captured]="poseProgress.DOWN"
+                  [class.ready]="currentDetection.poseBucket === 'DOWN' && shouldCapturePose()"
+                  cx="100" cy="100" r="90"
+                  stroke-dasharray="56.5 508"
+                  stroke-dashoffset="-226"
+                />
+                
+                <!-- LEFT segment -->
+                <circle 
+                  class="ring-segment left-segment" 
+                  [class.captured]="poseProgress.LEFT"
+                  [class.ready]="currentDetection.poseBucket === 'LEFT' && shouldCapturePose()"
+                  cx="100" cy="100" r="90"
+                  stroke-dasharray="56.5 508"
+                  stroke-dashoffset="-339"
+                />
+                
+                <!-- FRONT segment (larger) -->
+                <circle 
+                  class="ring-segment front-segment" 
+                  [class.captured]="poseProgress.FRONT"
+                  [class.ready]="currentDetection.poseBucket === 'FRONT' && shouldCapturePose()"
+                  cx="100" cy="100" r="90"
+                  stroke-dasharray="113 451"
+                  stroke-dashoffset="-452"
+                />
+              </svg>
+            </div>
+          </div>
+
+          <!-- Bottom Status Panel -->
+          <div class="bottom-status-panel">
+            <!-- Current Status Message -->
+            <div class="status-message">
+              <ion-icon name="information-circle-outline"></ion-icon>
+              <span>{{ statusMessage }}</span>
+            </div>
+
+            <!-- Pose Indicators -->
+            <div class="pose-indicators-compact">
+              <div class="pose-indicator" [class.completed]="poseProgress.FRONT">
+                <ion-icon name="person-circle-outline"></ion-icon>
+                @if (poseProgress.FRONT) {
+                  <ion-icon name="checkmark-circle" class="check-overlay"></ion-icon>
+                }
+              </div>
+              <div class="pose-indicator" [class.completed]="poseProgress.LEFT">
+                <ion-icon name="arrow-back-outline"></ion-icon>
+                @if (poseProgress.LEFT) {
+                  <ion-icon name="checkmark-circle" class="check-overlay"></ion-icon>
+                }
+              </div>
+              <div class="pose-indicator" [class.completed]="poseProgress.RIGHT">
+                <ion-icon name="arrow-forward-outline"></ion-icon>
+                @if (poseProgress.RIGHT) {
+                  <ion-icon name="checkmark-circle" class="check-overlay"></ion-icon>
+                }
+              </div>
+              <div class="pose-indicator" [class.completed]="poseProgress.UP">
+                <ion-icon name="arrow-up-outline"></ion-icon>
+                @if (poseProgress.UP) {
+                  <ion-icon name="checkmark-circle" class="check-overlay"></ion-icon>
+                }
+              </div>
+              <div class="pose-indicator" [class.completed]="poseProgress.DOWN">
+                <ion-icon name="arrow-down-outline"></ion-icon>
+                @if (poseProgress.DOWN) {
+                  <ion-icon name="checkmark-circle" class="check-overlay"></ion-icon>
+                }
+              </div>
+            </div>
+
+            <!-- Stop Button -->
+            <ion-button
+              fill="clear"
+              color="light"
+              (click)="stopCapture()"
+              class="stop-btn"
+            >
+              <ion-icon name="stop-circle-outline" slot="icon-only"></ion-icon>
+            </ion-button>
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- Error Message -->
+    @if (errorMessage) {
+      <div class="error-overlay">
+        <div class="error-content">
+          <ion-icon name="alert-circle-outline"></ion-icon>
+          <h3>Camera Error</h3>
+          <p>{{ errorMessage }}</p>
+          <ion-button fill="solid" (click)="startCapture()">
+            Try Again
+          </ion-button>
+        </div>
       </div>
     }
   </div>
