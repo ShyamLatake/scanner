@@ -85,7 +85,7 @@ export class CameraService {
       try {
         const testStream = await navigator.mediaDevices.getUserMedia({ 
           video: { 
-            facingMode: 'user', // Front camera
+            facingMode: 'environment', // Back camera
             width: { ideal: 720 },
             height: { ideal: 480 }
           } 
@@ -144,12 +144,12 @@ export class CameraService {
     this.video = video;
     
     try {
-      console.log('Starting front camera with mobile optimization...');
+      console.log('Starting back camera with mobile optimization...');
       
-      // Mobile-optimized constraints (~720p) with front camera
+      // Mobile-optimized constraints (~720p) with back camera
       const constraints = {
         video: {
-          facingMode: 'user', // Front camera
+          facingMode: 'environment', // Back camera
           width: { ideal: 720, min: 480, max: 1280 },
           height: { ideal: 480, min: 320, max: 720 },
           frameRate: { ideal: 30, max: 30 }
@@ -169,7 +169,7 @@ export class CameraService {
           console.log('Video metadata loaded, starting playback...');
           video.play()
             .then(() => {
-              console.log('✓ Front camera started successfully');
+              console.log('✓ Back camera started successfully');
               console.log(`Resolution: ${video.videoWidth}x${video.videoHeight}`);
               resolve(void 0);
             })
@@ -195,7 +195,7 @@ export class CameraService {
       if (error.name === 'NotAllowedError') {
         userMessage = 'Camera permission denied. Please allow camera access and try again.';
       } else if (error.name === 'NotFoundError') {
-        userMessage = 'No front camera found. Please ensure your device has a front-facing camera.';
+        userMessage = 'No back camera found. Please ensure your device has a back-facing camera.';
       } else if (error.name === 'NotReadableError') {
         userMessage = 'Camera is already in use by another application.';
       } else if (error.name === 'OverconstrainedError') {

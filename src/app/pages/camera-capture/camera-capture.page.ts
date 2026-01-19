@@ -14,6 +14,7 @@ import {
   IonButtons,
   IonBackButton,
   IonButton,
+  ViewWillLeave,
 } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
 import { 
@@ -43,6 +44,7 @@ import {
 } from 'ionicons/icons';
 import { CameraService } from '../../services/camera.service';
 import { FaceDetectionService, FaceDetectionResult } from '../../services/face-detection.service';
+import { EnrollmentService, EnrollmentSession, FrameUploadResult } from '../../services/enrollment.service';
 
 // Pose progress state machine
 interface PoseProgress {
@@ -71,11 +73,15 @@ interface PoseProgress {
     IonButton,
   ],
 })
-export class CameraCapturePage implements OnInit, OnDestroy, AfterViewInit {
+export class CameraCapturePage implements OnInit, OnDestroy, AfterViewInit, ViewWillLeave {
   @ViewChild('videoElement', { static: false }) videoElement!: ElementRef<HTMLVideoElement>;
 
   // Route parameters
   childId: string = '';
+
+  // Enrollment session state
+  enrollmentSession: EnrollmentSession | null = null;
+  sessionId: string = '';
 
   // Camera state
   active: boolean = false;
@@ -113,13 +119,13 @@ export class CameraCapturePage implements OnInit, OnDestroy, AfterViewInit {
   private readonly CAPTURE_COOLDOWN = 2000; // 2 seconds between captures per pose
   private lastCaptureTime: { [key: string]: number } = {};
   private analysisInterval?: any;
-  private capturedImages: { [key: string]: string } = {}; // Store captured images
 
   constructor(
     private route: ActivatedRoute,
     private router: Router,
     private cameraService: CameraService,
     private faceDetectionService: FaceDetectionService,
+    private enrollmentService: EnrollmentService,
     private toastController: ToastController,
     private loadingController: LoadingController,
     private alertController: AlertController,
@@ -171,11 +177,51 @@ export class CameraCapturePage implements OnInit, OnDestroy, AfterViewInit {
   }
 
   ngOnDestroy() {
-    this.stopCapture();
+    console.log('🧹 Component destroying, cleaning up resources');
+    this.cleanupCapture();
+  }
+
+  ionViewWillLeave() {
+    console.log('🔙 User navigating away, cleaning up capture');
+    this.cleanupCapture();
   }
 
   /**
-   * Start face capture session
+   * Clean up capture resources when component is destroyed
+   */
+  private async cleanupCapture() {
+    // Stop camera and analysis
+    if (this.active) {
+      this.active = false;
+      this.cameraService.stopCamera();
+      this.stopAnalysisLoop();
+    }
+    
+    // Cancel enrollment session if exists
+    if (this.sessionId) {
+      try {
+        await this.enrollmentService.cancelEnrollment(this.sessionId).toPromise();
+        console.log('✓ Enrollment session cancelled on navigation back');
+      } catch (error) {
+        console.error('Error cancelling enrollment session on cleanup:', error);
+      }
+    }
+    
+    // Reset state
+    this.sessionId = '';
+    this.enrollmentSession = null;
+    this.poseProgress = {
+      FRONT: false,
+      LEFT: false,
+      RIGHT: false,
+      UP: false,
+      DOWN: false
+    };
+    this.lastCaptureTime = {};
+  }
+
+  /**
+   * PHASE 1: Start face capture session with backend integration
    */
   async startCapture() {
     if (!this.viewInitialized) {
@@ -183,22 +229,39 @@ export class CameraCapturePage implements OnInit, OnDestroy, AfterViewInit {
       return;
     }
 
-    // Wait for video element to be available
-    const videoAvailable = await this.waitForVideoElement();
-    if (!videoAvailable) {
-      await this.presentToast('Video element not available. Please try restarting the app.', 'danger');
-      return;
-    }
-
     this.isLoading = true;
     this.cdr.detectChanges();
     
     const loading = await this.loadingController.create({
-      message: 'Starting camera...',
+      message: 'Initializing enrollment...',
     });
     await loading.present();
 
     try {
+      // PHASE 1 & 2: Initialize enrollment session with backend
+      console.log('🚀 PHASE 1: Initializing enrollment session');
+      
+      const initResponse = await this.enrollmentService.initializeEnrollment({
+        childId: this.childId,
+        name: `Child ${this.childId}`
+      }).toPromise();
+
+      if (!initResponse?.success) {
+        throw new Error('Failed to initialize enrollment session');
+      }
+
+      this.sessionId = initResponse.sessionId;
+      console.log('✓ PHASE 2: Enrollment session created:', this.sessionId);
+
+      // Update loading message
+      loading.message = 'Starting camera...';
+
+      // Wait for video element to be available
+      const videoAvailable = await this.waitForVideoElement();
+      if (!videoAvailable) {
+        throw new Error('Video element not available. Please try restarting the app.');
+      }
+
       // Check camera permissions
       const permissionCheck = await this.cameraService.checkCameraPermissions();
       
@@ -206,29 +269,30 @@ export class CameraCapturePage implements OnInit, OnDestroy, AfterViewInit {
         throw new Error(permissionCheck.message);
       }
 
-      console.log('Camera permissions OK, starting camera...');
+      console.log('📷 PHASE 3: Starting camera');
       
       const video = this.videoElement.nativeElement;
       await this.cameraService.startCamera(video);
       
-      console.log('Camera started successfully');
+      console.log('✓ Camera started successfully');
       
       this.active = true;
       this.statusMessage = 'Position your face in the circle and look straight ahead';
       
-      // Start face detection analysis loop
+      // PHASE 3: Start face detection analysis loop
       this.startAnalysisLoop();
 
       await loading.dismiss();
       this.isLoading = false;
       this.cdr.detectChanges();
       
-      await this.presentToast('Camera started successfully', 'success');
+      await this.presentToast('Enrollment session started successfully', 'success');
+      
     } catch (error: any) {
-      console.error('Error starting camera:', error);
+      console.error('❌ Error starting enrollment:', error);
       await loading.dismiss();
       this.isLoading = false;
-      this.errorMessage = error.message || 'Failed to start camera';
+      this.errorMessage = error.message || 'Failed to start enrollment';
       this.cdr.detectChanges();
       await this.presentToast(this.errorMessage, 'danger');
     }
@@ -262,12 +326,22 @@ export class CameraCapturePage implements OnInit, OnDestroy, AfterViewInit {
   }
 
   /**
-   * Reset capture state
+   * Reset capture state and cancel enrollment session
    */
   private async resetCapture() {
     this.active = false;
     this.cameraService.stopCamera();
     this.stopAnalysisLoop();
+    
+    // Cancel enrollment session if exists
+    if (this.sessionId) {
+      try {
+        await this.enrollmentService.cancelEnrollment(this.sessionId).toPromise();
+        console.log('✓ Enrollment session cancelled');
+      } catch (error) {
+        console.error('Error cancelling enrollment session:', error);
+      }
+    }
     
     this.poseProgress = {
       FRONT: false,
@@ -276,13 +350,14 @@ export class CameraCapturePage implements OnInit, OnDestroy, AfterViewInit {
       UP: false,
       DOWN: false
     };
-    this.statusMessage = 'Capture stopped';
+    this.statusMessage = 'Enrollment cancelled';
     this.lastCaptureTime = {};
-    this.capturedImages = {};
+    this.sessionId = '';
+    this.enrollmentSession = null;
     
     this.cdr.detectChanges();
     
-    await this.presentToast('Capture stopped', 'warning');
+    await this.presentToast('Enrollment cancelled', 'warning');
   }
 
   /**
@@ -311,11 +386,6 @@ export class CameraCapturePage implements OnInit, OnDestroy, AfterViewInit {
           // Check if we should capture this pose
           if (this.shouldCapturePose()) {
             this.capturePoseFrame();
-          }
-
-          // Check if capture is complete
-          if (this.isCaptureComplete()) {
-            this.onCaptureComplete();
           }
 
           this.cdr.detectChanges();
@@ -431,63 +501,106 @@ export class CameraCapturePage implements OnInit, OnDestroy, AfterViewInit {
   }
 
   /**
-   * Capture frame for current pose
+   * PHASE 4 & 5: Capture frame for current pose and upload to backend
    */
   private async capturePoseFrame() {
     const bucket = this.currentDetection.poseBucket!;
     
     try {
+      console.log(`📸 PHASE 4: Capturing ${bucket} pose frame`);
+      
       // Capture still frame
       const frameData = this.cameraService.captureFrame();
       
-      // Store captured image
-      this.capturedImages[bucket] = frameData;
-      
-      // Mark pose as captured
-      this.poseProgress[bucket as keyof PoseProgress] = true;
+      // Temporarily disable capture for this pose to prevent duplicates
       this.lastCaptureTime[bucket] = Date.now();
       
-      const qualityPercent = Math.round(this.currentDetection.quality * 100);
+      console.log(`📤 PHASE 5: Uploading ${bucket} frame to backend`);
+      
+      // Upload to backend
+      const uploadResult = await this.enrollmentService.uploadFrame({
+        sessionId: this.sessionId,
+        childId: this.childId,
+        pose: bucket,
+        quality: this.currentDetection.quality,
+        image: frameData
+      }).toPromise();
+
+      if (!uploadResult?.success) {
+        throw new Error(uploadResult?.message || 'Upload failed');
+      }
+
+      if (!uploadResult.accepted) {
+        // Frame was rejected by backend
+        console.log(`❌ ${bucket} frame rejected:`, uploadResult.message);
+        await this.presentToast(uploadResult.message, 'warning');
+        return;
+      }
+
+      console.log(`✅ PHASE 6-8: ${bucket} pose processed successfully`);
+      
+      // PHASE 9: Mark pose as captured
+      this.poseProgress[bucket as keyof PoseProgress] = true;
+      
+      const qualityPercent = Math.round((uploadResult.quality || this.currentDetection.quality) * 100);
       await this.presentToast(`${bucket} pose captured! Quality: ${qualityPercent}%`, 'success');
       
-      console.log(`✓ Captured ${bucket} pose with quality ${qualityPercent}%`);
+      console.log(`✓ ${bucket} pose completed. Progress: ${uploadResult.progress}%`);
+      
+      // PHASE 10 & 11: Check if enrollment is complete
+      if (uploadResult.completed) {
+        console.log('🎉 PHASE 11: All poses captured, completing enrollment');
+        await this.onEnrollmentComplete();
+      }
       
       this.cdr.detectChanges();
 
     } catch (error: any) {
-      console.error('Error capturing pose frame:', error);
-      this.statusMessage = 'Capture error. Please try again.';
+      console.error(`❌ Error capturing ${bucket} pose:`, error);
+      this.statusMessage = `Upload failed for ${bucket} pose. Please try again.`;
+      await this.presentToast(error.message || 'Capture failed. Please try again.', 'danger');
       this.cdr.detectChanges();
     }
   }
 
   /**
-   * Check if capture is complete
+   * PHASE 11 & 12: Handle enrollment completion
    */
-  private isCaptureComplete(): boolean {
-    return Object.values(this.poseProgress).every(Boolean);
-  }
-
-  /**
-   * Handle capture completion
-   */
-  private async onCaptureComplete() {
+  private async onEnrollmentComplete() {
     this.active = false;
     this.cameraService.stopCamera();
     this.stopAnalysisLoop();
     
-    this.statusMessage = 'Face capture complete!';
+    this.statusMessage = 'Enrollment completed successfully!';
     this.cdr.detectChanges();
     
-    await this.presentToast('All poses captured successfully!', 'success');
+    try {
+      // Notify backend of completion
+      if (this.sessionId) {
+        await this.enrollmentService.completeEnrollment(this.sessionId).toPromise();
+        console.log('✅ PHASE 12: Backend notified of completion');
+      }
+    } catch (error) {
+      console.error('Error notifying backend of completion:', error);
+      // Don't fail the whole process if backend notification fails
+    }
     
-    console.log('✓ Face capture completed for child:', this.childId);
-    console.log('Captured poses:', Object.keys(this.capturedImages));
+    await this.presentToast('All poses captured successfully! Enrollment complete.', 'success');
+    
+    console.log('🎉 Face enrollment completed for child:', this.childId);
+    console.log('Captured poses:', Object.keys(this.poseProgress).filter(key => this.poseProgress[key as keyof PoseProgress]));
     
     // Navigate back after a short delay
     setTimeout(() => {
       this.router.navigate(['/home']);
     }, 2000);
+  }
+
+  /**
+   * Check if capture is complete (updated to use backend progress)
+   */
+  private isCaptureComplete(): boolean {
+    return Object.values(this.poseProgress).every(Boolean);
   }
 
   /**
